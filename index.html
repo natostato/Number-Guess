@@ -1,0 +1,746 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+<title>Locked Letter Protocol</title>
+<style>
+:root{
+  --green:#00ff66;
+  --panel:rgba(0,0,0,.84);
+  --cyan:#66fff1;
+  --red:#ff2d35;
+  --gold:#ffd36a;
+  --amber:#ffc247;
+  --white:#e8fff0;
+}
+*{box-sizing:border-box}
+html,body{
+  margin:0;
+  min-height:100%;
+  background:#000;
+  color:var(--green);
+  font-family:"Courier New",monospace;
+  -webkit-overflow-scrolling:touch;
+}
+body{
+  overflow-x:hidden;
+  overflow-y:auto;
+  padding:calc(14px + env(safe-area-inset-top)) 14px calc(20px + env(safe-area-inset-bottom));
+  background:radial-gradient(circle at center,#071607 0%,#010201 68%,#000 100%);
+}
+canvas#matrix-rain{
+  position:fixed;
+  inset:0;
+  z-index:0;
+  width:100vw;
+  height:100vh;
+  opacity:.11;
+  pointer-events:none;
+}
+.scanlines{
+  position:fixed;
+  inset:0;
+  z-index:1;
+  pointer-events:none;
+  background:
+    linear-gradient(rgba(255,255,255,.025) 50%,rgba(0,0,0,.10) 50%),
+    linear-gradient(90deg,rgba(255,0,0,.012),rgba(0,255,0,.008),rgba(0,0,255,.012));
+  background-size:100% 4px,6px 100%;
+  mix-blend-mode:overlay;
+}
+#app{
+  position:relative;
+  z-index:2;
+  width:min(760px,100%);
+  margin:0 auto;
+  min-height:calc(100dvh - 34px - env(safe-area-inset-top) - env(safe-area-inset-bottom));
+  display:flex;
+  align-items:center;
+  justify-content:center;
+}
+#card{
+  width:100%;
+  max-height:calc(100dvh - 34px - env(safe-area-inset-top) - env(safe-area-inset-bottom));
+  overflow-y:auto;
+  border:2px solid var(--green);
+  box-shadow:0 0 18px rgba(0,255,102,.55), inset 0 0 24px rgba(0,255,102,.08);
+  background:var(--panel);
+  backdrop-filter:blur(3px);
+  padding:24px 18px 18px;
+  position:relative;
+  transition:opacity .28s ease,transform .28s ease,border-color .2s ease,box-shadow .2s ease;
+}
+#card::before{
+  content:"LOCKED LETTER PROTOCOL";
+  position:absolute;
+  top:-11px;
+  left:12px;
+  background:#020302;
+  padding:0 8px;
+  color:var(--cyan);
+  font-size:.66rem;
+  letter-spacing:.14em;
+  text-shadow:0 0 8px var(--cyan);
+}
+#card.gold{border-color:var(--gold);box-shadow:0 0 20px rgba(255,211,106,.54), inset 0 0 28px rgba(255,211,106,.08)}
+#card.warning{border-color:var(--red);box-shadow:0 0 18px rgba(255,45,53,.65), inset 0 0 24px rgba(255,45,53,.08)}
+#hint{
+  color:var(--cyan);
+  font-size:.78rem;
+  letter-spacing:.18em;
+  text-transform:uppercase;
+  text-shadow:0 0 8px var(--cyan);
+  margin:4px 0 18px;
+  min-height:18px;
+  text-align:center;
+}
+#title{
+  min-height:88px;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  text-align:center;
+  white-space:pre-wrap;
+  font-size:clamp(1.35rem,7vw,2.15rem);
+  line-height:1.25;
+  font-weight:700;
+  text-shadow:0 0 11px rgba(0,255,102,.9);
+  margin:0 0 18px;
+}
+.copy{
+  color:var(--white);
+  text-align:center;
+  white-space:pre-wrap;
+  font-size:1rem;
+  line-height:1.5;
+  margin:0 auto 18px;
+  max-width:640px;
+}
+#content{margin:0 auto 18px;max-width:640px}
+.actions{
+  position:sticky;
+  bottom:0;
+  z-index:8;
+  display:flex;
+  gap:10px;
+  justify-content:center;
+  flex-wrap:wrap;
+  padding-top:12px;
+  background:linear-gradient(to top,rgba(0,0,0,.96),rgba(0,0,0,.72),rgba(0,0,0,0));
+}
+button{font-family:"Courier New",monospace}
+.action{
+  cursor:pointer;
+  border:2px solid var(--green);
+  color:var(--green);
+  background:rgba(0,0,0,.62);
+  padding:12px 16px;
+  min-width:138px;
+  font-size:.95rem;
+  text-transform:uppercase;
+  letter-spacing:.08em;
+  transition:.16s ease;
+}
+.action:hover,.action:active{background:rgba(0,255,102,.16);box-shadow:0 0 12px var(--green);transform:translateY(-1px)}
+.action.danger{border-color:var(--red);color:var(--red);box-shadow:0 0 10px rgba(255,45,53,.36)}
+.action.secondary{opacity:.72}
+input,textarea,select{
+  width:100%;
+  background:rgba(0,0,0,.78);
+  border:2px solid var(--green);
+  color:var(--green);
+  padding:14px;
+  font:16px "Courier New",monospace;
+  outline:none;
+  box-shadow:inset 0 0 12px rgba(0,255,102,.12);
+  border-radius:0;
+}
+textarea{min-height:118px;resize:vertical}
+input:focus,textarea:focus,select:focus{box-shadow:0 0 12px rgba(0,255,102,.48), inset 0 0 15px rgba(0,255,102,.16)}
+label{
+  display:block;
+  color:var(--cyan);
+  text-align:left;
+  text-transform:uppercase;
+  letter-spacing:.08em;
+  font-size:.9rem;
+  margin:0 0 16px;
+}
+label span{display:block;margin-bottom:7px}
+.tapbox{
+  border:2px solid var(--green);
+  background:rgba(0,255,102,.06);
+  min-height:108px;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  font-size:3rem;
+  font-weight:700;
+  cursor:pointer;
+  user-select:none;
+  transition:.16s ease;
+}
+.tapbox:active{transform:scale(.97);background:rgba(0,255,102,.18)}
+.shapegrid,.choicegrid,.wordgrid{display:grid;gap:12px}
+.shapegrid{grid-template-columns:repeat(4,1fr)}
+.shape{
+  border:2px solid var(--green);
+  background:rgba(0,255,102,.05);
+  color:var(--green);
+  min-height:76px;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  font-size:2.6rem;
+  cursor:pointer;
+}
+.shape.circle{border-radius:50%}
+.shape.diamond span{transform:rotate(-45deg)}
+.shape.diamond{transform:rotate(45deg)}
+.shape.triangle{background:transparent;border:none;position:relative}
+.shape.triangle:before{
+  content:"";
+  width:0;height:0;
+  border-left:38px solid transparent;
+  border-right:38px solid transparent;
+  border-bottom:68px solid var(--green);
+}
+.choicegrid,.wordgrid{grid-template-columns:1fr}
+.choice,.word{
+  border:2px solid var(--green);
+  background:rgba(0,255,102,.05);
+  color:var(--green);
+  padding:14px;
+  min-height:60px;
+  font-size:.98rem;
+  line-height:1.35;
+  cursor:pointer;
+  white-space:pre-wrap;
+}
+.word{text-transform:uppercase;letter-spacing:.12em;font-size:1.05rem}
+.choice.selected,.word.selected{border-color:var(--gold);color:var(--gold);box-shadow:0 0 14px rgba(255,211,106,.64)}
+.loading:after{content:"";animation:dots 1s steps(4,end) infinite}
+@keyframes dots{0%{content:""}25%{content:"."}50%{content:".."}75%{content:"..."}100%{content:""}}
+
+/* FINAL SCREEN: reliable decode columns */
+#result{
+  display:none;
+  position:relative;
+  overflow:hidden;
+  min-height:780px;
+  padding:20px 0 36px;
+}
+.code-col{
+  position:absolute;
+  top:78px;
+  bottom:78px;
+  width:28%;
+  z-index:1;
+  color:rgba(255,194,71,.74);
+  font-size:clamp(.48rem,2.05vw,.66rem);
+  line-height:1.52;
+  text-align:left;
+  text-shadow:0 0 8px rgba(255,194,71,.44);
+  overflow:hidden;
+  pointer-events:none;
+  user-select:none;
+  display:flex;
+  flex-direction:column;
+  justify-content:flex-start;
+  gap:7px;
+}
+#code-left{left:4.2%}
+#code-right{right:4.2%}
+.code-row{
+  white-space:nowrap;
+  letter-spacing:.02em;
+}
+#result-foreground{
+  position:relative;
+  z-index:3;
+  padding:10px 4px 20px;
+  max-width:58%;
+  margin:0 auto;
+}
+.result-title{
+  text-transform:uppercase;
+  font-size:clamp(1.25rem,5.4vw,2.4rem);
+  margin:0 0 10px;
+  text-align:center;
+  color:var(--cyan);
+  letter-spacing:.12em;
+  text-shadow:0 0 12px #000,0 0 20px #000,0 0 10px rgba(102,255,241,.75);
+}
+.locknum{
+  font-size:clamp(4.8rem,25vw,9rem);
+  line-height:.9;
+  color:var(--gold);
+  font-weight:700;
+  text-shadow:0 0 18px rgba(255,211,106,.95),0 0 24px #000,0 0 12px #000;
+  margin:16px 0 24px;
+  display:inline-block;
+}
+#result .copy{
+  font-size:clamp(.88rem,3.75vw,1.05rem);
+  text-shadow:0 0 12px #000,0 0 20px #000,0 0 8px rgba(0,255,102,.5);
+}
+.final-command{
+  color:var(--red);
+  border-top:1px solid rgba(255,45,53,.55);
+  border-bottom:1px solid rgba(255,45,53,.55);
+  padding:9px 4px;
+  text-shadow:0 0 12px #000,0 0 20px #000,0 0 9px rgba(255,45,53,.9);
+}
+
+/* hidden full stream, not visible, for copy/debug only if needed */
+#full-stream{
+  position:absolute;
+  opacity:0;
+  pointer-events:none;
+  user-select:none;
+}
+
+@media (min-width:640px){
+  #card{padding:34px 30px 24px}
+  .choicegrid{grid-template-columns:repeat(2,1fr)}
+  .wordgrid{grid-template-columns:repeat(4,1fr)}
+  .actions{background:linear-gradient(to top,rgba(0,0,0,.92),rgba(0,0,0,.55),rgba(0,0,0,0))}
+}
+</style>
+</head>
+<body>
+<canvas id="matrix-rain"></canvas>
+<div class="scanlines"></div>
+
+<main id="app">
+  <section id="card">
+    <div id="hint">SEALED ITEM DETECTED</div>
+    <div id="title">You have been sent a locked letter.</div>
+    <div id="content"></div>
+
+    <div id="result">
+      <div id="code-left" class="code-col"></div>
+      <div id="code-right" class="code-col"></div>
+      <div id="full-stream"></div>
+
+      <div id="result-foreground">
+        <div class="result-title">LOCK NUMBER CONFIRMED</div>
+        <div class="locknum">26</div>
+        <p class="copy">Does this number mean anything to you?
+
+Interesting.
+
+The letter is now complete, but the final reveal cannot happen inside the letter.</p>
+        <p class="copy final-command">SCREENSHOT THIS PAGE AND SEND IT BACK TO THE PERSON WHO SENT YOU THE LETTER.
+
+ONE FINAL IMPOSSIBLE REVEAL REMAINS.</p>
+      </div>
+    </div>
+
+    <div id="actions" class="actions"></div>
+  </section>
+</main>
+
+<script>
+const answers = {};
+let phase = "";
+let taps = 0;
+
+const openQuestions = [
+  {key:"comfort_food", hint:"LETTER PAGE 1", q:"What is your ultimate comfort food when you've had enough of the world?", ph:"First honest answer..."},
+  {key:"guilty_pleasure", hint:"LETTER PAGE 2", q:"What is your ultimate guilty pleasure that you'd probably deny liking in public?", ph:"No judgement. The letter is dramatic, not a cop..."},
+  {key:"weird_attractive", hint:"LETTER PAGE 3", q:"What is something you find weirdly attractive that most people would not understand?", ph:"Be honest. Weird counts..."},
+  {key:"arrested", hint:"LETTER PAGE 4", q:"If you got arrested for something completely ridiculous, what would the charge most likely be?", ph:"Ridiculous charges only..."},
+  {key:"disappear", hint:"LETTER PAGE 5", q:"If you disappeared for 24 hours with no explanation, where would you go?", ph:"Anywhere. Real or unrealistic..."},
+  {key:"time_travel", hint:"LETTER PAGE 6", q:"If you could change one thing and go back in time, what would it be?", ph:"Say the first real thing that comes up..."}
+];
+
+const mc = {
+  body:{key:"body_count", hint:"RANGE SELECTION", q:"Relationship XP\n\nWhich range best matches your experience?", options:[
+    ["A","🟢 Rookie\n0–5"],["B","🔵 Explorer\n6–10"],["C","🟣 Veteran\n11–18"],["D","🟠 Legendary\n19–25"],["E","⭐ Beyond Counting\n25+"]
+  ]},
+  lead:{key:"chemistry_lead", hint:"QUICK CHOICE", q:"When there's chemistry with someone...", options:[
+    ["A","😈 I naturally take charge."],["B","⛓️ Depends on the mood."],["C","🫠 I prefer they take control."],["D","🪶 I like playful back-and-forth."]
+  ]},
+  fantasy:{key:"fantasy_choice", hint:"QUICK CHOICE", q:"Which sounds the most interesting?", options:[
+    ["A","🎭 Roleplay or dressing up"],["B","🪢 Light bondage or sensory play"],["C","👁️ Watching or being watched"],["D","🧊 Temperature play"]
+  ]}
+};
+
+const wordTests = {
+  one:{key:"word_one", hint:"INSTINCT TEST", q:"Pick the word that pulls your attention first.\n\nDo not pick the best one.\nDo not pick the funniest one.\nDo not think.", words:["BLOW","SUCK","SPIT","SWALLOW"]},
+  two:{key:"word_two", hint:"FINAL INSTINCT TEST", q:"One more immediate choice.\n\nPick the word that feels slightly different from the others.", words:["BATH","SHOWER","SPA","LOUNGE"]}
+};
+
+const hint = document.getElementById("hint");
+const title = document.getElementById("title");
+const content = document.getElementById("content");
+const actions = document.getElementById("actions");
+const card = document.getElementById("card");
+const result = document.getElementById("result");
+const codeLeft = document.getElementById("code-left");
+const codeRight = document.getElementById("code-right");
+const fullStream = document.getElementById("full-stream");
+
+function scrollTopSoon(){
+  setTimeout(()=>card.scrollTo({top:0,behavior:"smooth"}),30);
+  setTimeout(()=>window.scrollTo({top:0,behavior:"smooth"}),30);
+}
+function swap(fn){
+  card.style.opacity="0";
+  card.style.transform="scale(.992)";
+  setTimeout(()=>{
+    card.classList.remove("warning","gold");
+    fn();
+    card.style.opacity="1";
+    card.style.transform="scale(1)";
+    scrollTopSoon();
+  },240);
+}
+function setActions(list){
+  actions.innerHTML="";
+  list.forEach(x=>{
+    const b=document.createElement("button");
+    b.className="action"+(x.danger?" danger":"")+(x.secondary?" secondary":"");
+    b.textContent=x.text;
+    b.onclick=x.fn;
+    actions.appendChild(b);
+  });
+}
+function clear(){
+  content.innerHTML="";
+  result.style.display="none";
+  title.style.display="flex";
+}
+function flash(){
+  card.classList.add("warning");
+  setTimeout(()=>card.classList.remove("warning"),450);
+}
+function flashInput(el){
+  el.style.borderColor="var(--red)";
+  el.style.boxShadow="0 0 14px rgba(255,45,53,.85)";
+  setTimeout(()=>{el.style.borderColor="var(--green)";el.style.boxShadow="";},450);
+}
+function start(){
+  swap(()=>{
+    clear();
+    hint.textContent="SEAL REQUIREMENT 1 / 4";
+    title.textContent="To open the letter, complete the sequence.";
+    setActions([{text:"Begin",fn:tapThree}]);
+  });
+}
+function tapThree(){
+  phase="tap3"; taps=0;
+  swap(()=>{
+    clear();
+    hint.textContent="SEAL REQUIREMENT 1 / 4";
+    title.textContent="Tap 3 times.";
+    content.innerHTML='<div class="tapbox" id="tapbox">0</div>';
+    document.getElementById("tapbox").onclick=handleTap;
+    setActions([]);
+  });
+}
+function handleTap(){
+  taps++;
+  document.getElementById("tapbox").textContent=taps;
+  if(phase==="tap3" && taps>=3) shapeSelect();
+  if(phase==="tap5" && taps>=5) pauseSeq();
+}
+function shapeSelect(){
+  setTimeout(()=>swap(()=>{
+    clear();
+    hint.textContent="SEAL REQUIREMENT 2 / 4";
+    title.textContent="Select the circle.";
+    content.innerHTML=`<div class="shapegrid">
+      <div class="shape">□</div><div class="shape circle" id="circle">○</div><div class="shape triangle"></div><div class="shape diamond"><span>◇</span></div>
+    </div>`;
+    [...content.querySelectorAll(".shape")].forEach(el=>el.onclick=wrongShape);
+    document.getElementById("circle").onclick=()=>{card.classList.add("gold"); setTimeout(tapFive,350);};
+    setActions([]);
+  }),350);
+}
+function wrongShape(){
+  card.classList.add("warning");
+  title.textContent="Not that one.";
+  hint.textContent="TRY AGAIN";
+  setTimeout(()=>{card.classList.remove("warning");hint.textContent="SEAL REQUIREMENT 2 / 4";title.textContent="Select the circle.";},650);
+}
+function tapFive(){
+  phase="tap5"; taps=0;
+  swap(()=>{
+    clear();
+    hint.textContent="SEAL REQUIREMENT 3 / 4";
+    title.textContent="Tap 5 more times.";
+    content.innerHTML='<div class="tapbox" id="tapbox">0</div>';
+    document.getElementById("tapbox").onclick=handleTap;
+    setActions([]);
+  });
+}
+function pauseSeq(){
+  swap(()=>{
+    clear();
+    hint.textContent="SEAL REQUIREMENT 4 / 4";
+    title.innerHTML='<span class="loading">Hold still</span>';
+    setActions([]);
+  });
+  setTimeout(()=>title.innerHTML='<span class="loading">Opening seal</span>',1200);
+  setTimeout(()=>title.innerHTML='<span class="loading">Checking ink</span>',2400);
+  setTimeout(()=>{card.classList.add("gold"); hint.textContent="LETTER UNLOCKED"; title.textContent="The letter is open."; setActions([{text:"Read",danger:true,fn:identity}]);},3800);
+}
+function identity(){
+  swap(()=>{
+    clear();
+    hint.textContent="IDENTITY CONFIRMATION";
+    title.textContent="Before the letter can continue, confirm your identity.";
+    content.innerHTML=`<label><span>Name</span><input id="name" type="text" placeholder="Type your name..." autocomplete="off" value="${answers.name||""}"></label>
+    <label><span>Gender</span><select id="gender">
+      <option value="">Select one...</option>
+      <option value="A"${answers.gender==="A"?" selected":""}>Female</option>
+      <option value="B"${answers.gender==="B"?" selected":""}>Male</option>
+      <option value="C"${answers.gender==="C"?" selected":""}>Non-binary</option>
+      <option value="D"${answers.gender==="D"?" selected":""}>Prefer not to say</option>
+    </select></label>
+    <p class="copy">Do not continue unless you have 5–6 uninterrupted minutes.
+
+This experiment works best with honest answers.
+
+Rushed answers, half answers, or joke answers will affect the final result.
+
+Proceed only if you are actually going to play along.</p>`;
+    setActions([{text:"Not Right Now",secondary:true,fn:()=>location.reload()},{text:"Proceed",danger:true,fn:saveIdentity}]);
+    document.getElementById("name").focus();
+  });
+}
+function saveIdentity(){
+  const n=document.getElementById("name"), g=document.getElementById("gender");
+  if(!n.value.trim()){flashInput(n);return}
+  if(!g.value){flashInput(g);return}
+  answers.name=n.value.trim();
+  answers.gender=g.value;
+  numberStart();
+}
+function numberStart(){
+  swap(()=>{
+    clear();
+    hint.textContent="PRIVATE LOCK SELECTION";
+    title.textContent="Choose ANY number from 1–49.";
+    content.innerHTML='<p class="copy">Do NOT type it.\nDo NOT write it down.\n\nSimply remember it.\n\nThis is your starting number.\n\nLock it in your head and do not change it.</p>';
+    setActions([{text:"Locked In",danger:true,fn:()=>openQ(0)}]);
+  });
+}
+function openQ(i){
+  const q=openQuestions[i];
+  swap(()=>{
+    clear();
+    hint.textContent=q.hint;
+    title.textContent=q.q;
+    content.innerHTML=`<textarea id="answer" placeholder="${q.ph}">${answers[q.key]||""}</textarea>`;
+    setActions([{text:i===openQuestions.length-1?"Continue":"Next",danger:i===openQuestions.length-1,fn:()=>submitOpen(i)}]);
+    document.getElementById("answer").focus();
+  });
+}
+function submitOpen(i){
+  const q=openQuestions[i], el=document.getElementById("answer");
+  if(!el.value.trim()){flashInput(el);return}
+  answers[q.key]=el.value.trim();
+
+  if(i===0) numAdd20();
+  else if(i===1) algorithm();
+  else if(i===2) numAdd7();
+  else if(i===3) numSub3();
+  else if(i===4) showMC(mc.fantasy,()=>openQ(5));
+  else if(i===5) numAdd2();
+}
+function showMC(cfg,next){
+  swap(()=>{
+    clear();
+    hint.textContent=cfg.hint;
+    title.textContent=cfg.q;
+    content.innerHTML='<div class="choicegrid"></div>';
+    const grid=content.querySelector(".choicegrid");
+    cfg.options.forEach(([codeVal,text])=>{
+      const b=document.createElement("button");
+      b.className="choice"+(answers[cfg.key]===codeVal?" selected":"");
+      b.textContent=text;
+      b.onclick=()=>{
+        answers[cfg.key]=codeVal;
+        [...grid.children].forEach(c=>c.classList.remove("selected"));
+        b.classList.add("selected");
+      };
+      grid.appendChild(b);
+    });
+    setActions([{text:"Continue",danger:true,fn:()=>{if(!answers[cfg.key]){flash();return} next();}}]);
+  });
+}
+function wordTest(t,next){
+  swap(()=>{
+    clear();
+    hint.textContent=t.hint;
+    title.textContent=t.q;
+    content.innerHTML='<div class="wordgrid"></div>';
+    const grid=content.querySelector(".wordgrid");
+    t.words.forEach((w,i)=>{
+      const c=String.fromCharCode(65+i);
+      const b=document.createElement("button");
+      b.className="word"+(answers[t.key]===c?" selected":"");
+      b.textContent=w;
+      b.onclick=()=>{
+        answers[t.key]=c;
+        [...grid.children].forEach(x=>x.classList.remove("selected"));
+        b.classList.add("selected");
+        setTimeout(next,220);
+      };
+      grid.appendChild(b);
+    });
+    setActions([]);
+  });
+}
+function numAdd20(){
+  swap(()=>{
+    clear(); hint.textContent="STOP"; title.textContent="Take your current number.";
+    content.innerHTML='<p class="copy">Add 20.\n\nLock the NEW number in your head.</p>';
+    setActions([{text:"Done",danger:true,fn:()=>showMC(mc.body,()=>openQ(1))}]);
+  });
+}
+function algorithm(){
+  swap(()=>{clear(); hint.textContent="PLEASE WAIT"; title.innerHTML='<span class="loading">Sorting obvious answers</span>'; setActions([]);});
+  setTimeout(()=>title.innerHTML='<span class="loading">Filtering hesitation</span>',1200);
+  setTimeout(()=>title.innerHTML='<span class="loading">Building response profile</span>',2400);
+  setTimeout(()=>title.innerHTML='<span class="loading">Forming your algorithm</span>',3600);
+  setTimeout(()=>wordTest(wordTests.one,()=>openQ(2)),5000);
+}
+function numAdd7(){
+  swap(()=>{
+    clear(); hint.textContent="STOP"; title.textContent="Remember your CURRENT number.";
+    content.innerHTML='<p class="copy">Add 7.\n\nDo not go back to your starting number.\n\nKeep the new number locked in.</p>';
+    setActions([{text:"Done",danger:true,fn:()=>openQ(3)}]);
+  });
+}
+function numSub3(){
+  swap(()=>{
+    clear(); hint.textContent="STOP"; title.textContent="Use your CURRENT number.";
+    content.innerHTML='<p class="copy">Subtract 3.\n\nRemember the NEW number.</p>';
+    setActions([{text:"Done",danger:true,fn:()=>showMC(mc.lead,()=>openQ(4))}]);
+  });
+}
+function numAdd2(){
+  swap(()=>{
+    clear(); hint.textContent="STOP"; title.textContent="Take your CURRENT number.";
+    content.innerHTML='<p class="copy">Add 2.\n\nLock it in.\n\nThis is your final number for now.</p>';
+    setActions([{text:"Done",danger:true,fn:()=>wordTest(wordTests.two,finalSubtract)}]);
+  });
+}
+function finalSubtract(){
+  swap(()=>{
+    clear(); hint.textContent="FINAL STEP"; title.textContent="Take your CURRENT number.";
+    content.innerHTML='<p class="copy">Subtract your ORIGINAL starting number.\n\nDo not type it.\n\nSimply remember the answer.</p>';
+    setActions([{text:"I Have The Result",danger:true,fn:finalResult}]);
+  });
+}
+function finalResult(){
+  swap(()=>{
+    clear();
+    card.classList.add("gold");
+    hint.textContent="RESULT GENERATED";
+    title.style.display="none";
+    result.style.display="block";
+    const stream = encodeAnswers();
+    fullStream.textContent = stream;
+    renderSideColumns(stream);
+    setActions([]);
+  });
+}
+function encodeText(t){
+  const out=[];
+  for(const ch of String(t).toUpperCase()){
+    if(ch>="A"&&ch<="Z")out.push(String(ch.charCodeAt(0)-64));
+    else if(ch===" ")out.push("27");
+    else if(ch===".")out.push("81");
+    else if(ch===",")out.push("82");
+    else if(ch==="!")out.push("83");
+    else if(ch==="?")out.push("84");
+    else if(ch==="'")out.push("85");
+    else if(ch==="-")out.push("86");
+    else if(ch>="0"&&ch<="9")out.push(String(90+Number(ch)));
+  }
+  return out;
+}
+function encodeAnswers(){
+  // Hidden code starts from the first actual answer.
+  // Name and gender are NOT encoded.
+  const order=[
+    "comfort_food",
+    "body_count",
+    "guilty_pleasure",
+    "word_one",
+    "weird_attractive",
+    "arrested",
+    "chemistry_lead",
+    "disappear",
+    "fantasy_choice",
+    "time_travel",
+    "word_two"
+  ];
+  const stream=[];
+  order.forEach(k=>{
+    if(answers[k]){
+      stream.push(...encodeText(answers[k]));
+      stream.push("28");
+    }
+  });
+  return stream.join(" ");
+}
+function chunk(arr, size){
+  const rows=[];
+  for(let i=0;i<arr.length;i+=size) rows.push(arr.slice(i,i+size));
+  return rows;
+}
+function renderSideColumns(stream){
+  const tokens = stream.split(/\s+/).filter(Boolean);
+  const rows = chunk(tokens, 6).map(r => r.join(" "));
+  const half = Math.ceil(rows.length / 2);
+
+  let leftRows = rows.slice(0, half);
+  let rightRows = rows.slice(half);
+
+  // Filler appears only after the real code ends.
+  const fillerRows = [
+    "01 00 404 27 28 15",
+    "20 7 19 12 5 11",
+    "28 01 00 404 27 28"
+  ];
+
+  let f = 0;
+  while(leftRows.length < 18){
+    leftRows.push(fillerRows[f % fillerRows.length]);
+    f++;
+  }
+  while(rightRows.length < 18){
+    rightRows.push(fillerRows[f % fillerRows.length]);
+    f++;
+  }
+
+  codeLeft.innerHTML = leftRows.slice(0,18).map(r => `<div class="code-row">${r}</div>`).join("");
+  codeRight.innerHTML = rightRows.slice(0,18).map(r => `<div class="code-row">${r}</div>`).join("");
+}
+setActions([{text:"Unlock",danger:true,fn:start}]);
+
+/* Ambient Matrix rain */
+const canvas=document.getElementById("matrix-rain"),ctx=canvas.getContext("2d");
+let cols,drops;
+function resize(){canvas.width=innerWidth;canvas.height=innerHeight;cols=Math.floor(canvas.width/18);drops=Array(cols).fill(1)}
+function rain(){
+  ctx.fillStyle="rgba(0,0,0,.08)";ctx.fillRect(0,0,canvas.width,canvas.height);
+  ctx.fillStyle="#00ff66";ctx.font="16px Courier New";
+  for(let i=0;i<drops.length;i++){
+    const ch=Math.random()>.55?Math.floor(Math.random()*10):String.fromCharCode(65+Math.floor(Math.random()*26));
+    ctx.fillText(ch,i*18,drops[i]*18);
+    if(drops[i]*18>canvas.height&&Math.random()>.976)drops[i]=0;
+    drops[i]++;
+  }
+}
+addEventListener("resize",resize);resize();setInterval(rain,48);
+</script>
+</body>
+</html>
